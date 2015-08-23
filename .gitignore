@@ -1,4 +1,5 @@
 tasks
+.idea
 *.gem
 *.rbc
 .bundle
