@@ -110,12 +110,12 @@ module Volt
     # Note: use this method when you are watching for changes to the
     # 'contents' of a model/array/hash (and any reachable object) but
     # you DO NOT need to identify what in particular changed.
-    def watch_general(target, ignore: nil, &block)
+    def watch_any(target, ignore: nil, &block)
       add_watch(target, mode: :general, ignore: ignore, action: block)
     end
 
-    # Adds a watch for any change to the object returned by
-    # 'target' and for any change to any object reachable from
+    # Adds a watch for all changes to the object returned by
+    # 'target' and for all change to any object reachable from
     # the target.
     #
     # The target object may be a Volt::Model, Volt::ArrayModel,
@@ -132,7 +132,7 @@ module Volt
     # Note: use this method when you are watching for changes to the
     # 'contents' of a model/array/hash (and any reachable object) and
     # you DO need to identify the particular value that changed.
-    def watch_particular(target, ignore: nil, &block)
+    def watch_all(target, ignore: nil, &block)
       add_watch(target, mode: :particular, ignore: ignore, action: block)
     end
 
