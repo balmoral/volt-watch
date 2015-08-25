@@ -275,50 +275,50 @@ module Volt
     def compute_nodes(proc, all, ignore, &block)
       root = proc.call
       yield(root) unless all # once only here for any
-      compute_node(nil, nil, root, all, ignore, action)
+      compute_node(nil, nil, root, all, ignore, block)
     end
 
-    def compute_node(parent, tag, value, all, ignore, action)
-      action.call(parent, tag, value) if all && parent
+    def compute_node(parent, tag, value, all, ignore, block)
+      block.call(parent, tag, value) if all && parent
       if value.is_a?(Volt::Model)
-        compute_model(value, all, ignore, action)
+        compute_model(value, all, ignore, block)
       elsif value.is_a?(Volt::ReactiveArray)
-        compute_array(value, all, ignore, action)
+        compute_array(value, all, ignore, block)
       elsif value.is_a?(Volt::ReactiveHash)
-        compute_hash(value, all, ignore, action)
+        compute_hash(value, all, ignore, block)
       end
     end
 
-    def compute_array(array, all, ignore, action)
-      compute_size(array, all, ignore, action)
+    def compute_array(array, all, ignore, block)
+      compute_size(array, all, ignore, block)
       # array[i] to trigger dependency
       array.size.times do |i|
-        compute_node(array, i, array[i], all, ignore, action)
+        compute_node(array, i, array[i], all, ignore, block)
       end
     end
 
-    def compute_hash(hash, all, ignore, action)
-      compute_size(hash, all, ignore, action)
+    def compute_hash(hash, all, ignore, block)
+      compute_size(hash, all, ignore, block)
       # hash[key] to trigger dependency
       hash.each_key do |key|
-        compute_node(hash, key, hash[key], all, ignore, action)
+        compute_node(hash, key, hash[key], all, ignore, block)
       end
     end
 
-    def compute_model(model, all, ignore, action)
+    def compute_model(model, all, ignore, block)
       # model.send(_attr) to trigger dependency
       model.attributes.each_key do |attr|
         _attr = :"_#{attr}"
         unless ignore && ignore.include?(_attr)
-          compute_node(model, _attr, model.send(_attr), all, ignore, action)
+          compute_node(model, _attr, model.send(_attr), all, ignore, block)
         end
       end
     end
 
-    def compute_size(collection, all, ignore, action)
+    def compute_size(collection, all, ignore, block)
       if all
         unless ignore && ignore.include?(:size)
-          action.call(collection, :size, collection.size)
+          block.call(collection, :size, collection.size)
         end  
       end  
     end  
