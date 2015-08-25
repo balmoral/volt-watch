@@ -5,7 +5,7 @@ Volt::Watch is a helper mixin to provide simpler syntax and easy management of c
 Watches can can be created for attributes, elements and values of instances of Volt::Model, Volt::ArrayModel, Volt::ReactiveArray and Volt::ReactiveHash.
 
 It further provides for creating watches on the 'internal contents' of any model, array or hash - that is, 
-to watch (and react to changes in) any object reachable from a single 'root' model, array or hash. 
+to watch (and react to changes in) any object reachable from a 'root' model, array or hash. 
   
 It keeps track of all watches created and provides a method to stop and destroy all watches.
   

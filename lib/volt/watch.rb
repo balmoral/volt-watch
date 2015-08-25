@@ -95,45 +95,104 @@ module Volt
     end
 
     # Adds a watch for any change to the object returned by
-    # 'target' and for any change to any object reachable from
-    # the target.
+    # 'root' and for any change to any object reachable from
+    # the root.
     #
-    # The target object may be a Volt::Model, Volt::ArrayModel,
+    # The root object may be a Volt::Model, Volt::ArrayModel,
     # Volt::ReactiveArray or Volt::ReactiveHash.
     #
-    # 'target' must be a Proc which returns the model, array or hash.
+    # 'root' must be a Proc which returns the model, array or hash.
     #
-    # If the value of the target object or any reactive object reachable
-    # from it changes then the given block will be called with the target
+    # If the value of the root object or any reactive object reachable
+    # from it changes then the given block will be called with the root
     # object as the argument.
     #
     # Note: use this method when you are watching for changes to the
     # 'contents' of a model/array/hash (and any reachable object) but
     # you DO NOT need to identify what in particular changed.
-    def watch_any(target, ignore: nil, &block)
-      add_watch(target, mode: :general, ignore: ignore, action: block)
+    #
+    # For example:
+    #
+    # ```
+    #   watch_any ->{ person } do
+    #     puts "an attribute of #{person.name} has changed"
+    #   end
+    # ```
+    def watch_any(root, ignore: nil, &block)
+      add_watch(root, mode: :any, ignore: ignore, action: block)
     end
 
     # Adds a watch for all changes to the object returned by
-    # 'target' and for all change to any object reachable from
-    # the target.
+    # 'root' and for all change to any object reachable from
+    # the root.
     #
-    # The target object may be a Volt::Model, Volt::ArrayModel,
+    # The root object may be a Volt::Model, Volt::ArrayModel,
     # Volt::ReactiveArray or Volt::ReactiveHash.
     #
-    # 'target' must be a Proc which returns the model, array or hash.
+    # 'root' must be a Proc which returns the model, array or hash.
     #
-    # If the value of the target object or any reactive object reachable
+    # If the root object or any reactive object (node) reachable
     # from it changes then the given block will be called with the
-    # 'owner' of the changed value as the first argument, the
+    # parent of the changed value as the first argument, the
     # attribute_name/index/key associated with the value as the
-    # second argument, and the value itself as the third argument.
+    # second argument, and the value (node) itself as the third argument.
+    #
+    # Additionally, for arrays and hashes, if the size of the array/hash
+    # has changed the given block will be called with the
+    # array/hash whose size has changed as the first argument, the
+    # symbol `:size` as the second argument, and the new size of
+    # the array/hash as as the third argument.
     #
     # Note: use this method when you are watching for changes to the
     # 'contents' of a model/array/hash (and any reachable object) and
     # you DO need to identify the particular value that changed.
-    def watch_all(target, ignore: nil, &block)
-      add_watch(target, mode: :particular, ignore: ignore, action: block)
+    #
+    # For example:
+    #
+    # ```
+    #   class Contact < Volt::Model
+    #     field :street
+    #     field :city
+    #     field :zip
+    #     field :country
+    #     field :phone
+    #     field :email
+    #   end
+    #
+    #   class Customer < Volt::Model
+    #     field :name
+    #     field :contact
+    #   end
+    #
+    #   class Order < Volt::Model
+    #     field :customer
+    #     field :product
+    #     field :date
+    #     field :quantity
+    #   end
+    #
+    #   def watch_orders
+    #     watch_all ->{ orders } do |parent, tag, value|
+    #       case
+    #         when parent == orders
+    #           if tag == :size
+    #             puts "orders.size has changed to #{value}"
+    #           else
+    #             index = tag
+    #             puts "orders[#{index}] has changed to #{orders[index]}"
+    #           end
+    #         when parent.is_a? Customer
+    #           customer, attr = value, tag
+    #           puts "customer #{customer.id} #{attr} has changed to #{customer.get(attr)}"
+    #         when parent.is_a? Order
+    #           order, attr = value, tag
+    #           puts "order #{order.id} #{attr} has changed to #{order.get(attr)}"
+    #       end
+    #     end
+    #   end
+    # ```
+    def watch_all(root, ignore: nil, &block)
+      add_watch(root, mode: :all, ignore: ignore, action: block)
     end
 
     # Stops and destroys all current watches.
@@ -162,20 +221,20 @@ module Volt
           end
         when :values
           -> do
-            compute_values(target) do |key, value|
+            compute(target) do |key, value|
               action.call(key, value)
             end
           end
-        when :general
+        when :any
           -> do
-            compute_into(target, false, ignore) do |value|
+            compute_nodes(target, false, ignore) do |value|
               action.call(value)
             end
           end
-        when :particular
+        when :all
           -> do
-            compute_into(target, true, ignore) do |owner, key, value|
-              action.call(value, key, owner)
+            compute_nodes(target, true, ignore) do |owner, key, value|
+              action.call(owner, key, value)
             end
           end
         else
@@ -183,8 +242,8 @@ module Volt
       end.watch!
     end
 
-    def compute_values(target, &block)
-      value = target.call
+    def compute(proc, &block)
+      value = proc.call
       if value.is_a?(Volt::Model)
         enumerate_model(value, block)
       elsif value.is_a?(Volt::ReactiveArray)
@@ -213,46 +272,55 @@ module Volt
       end
     end
 
-    def compute_into(target, particular, ignore, &block)
-      value = target.call
-      yield(value) unless particular # once only here for general
-      into_value(nil, nil, value, particular, ignore, block)
+    def compute_nodes(proc, all, ignore, &block)
+      root = proc.call
+      yield(root) unless all # once only here for any
+      compute_node(nil, nil, root, all, ignore, action)
     end
 
-    def into_value(owner, key, value, particular, ignore, block)
-      yield(owner, key, value) if particular
+    def compute_node(parent, tag, value, all, ignore, action)
+      action.call(parent, tag, value) if all && parent
       if value.is_a?(Volt::Model)
-        into_model(value, particular, ignore, block)
+        compute_model(value, all, ignore, action)
       elsif value.is_a?(Volt::ReactiveArray)
-        into_array(value, particular, ignore, block)
+        compute_array(value, all, ignore, action)
       elsif value.is_a?(Volt::ReactiveHash)
-        into_hash(value, particular, ignore, block)
+        compute_hash(value, all, ignore, action)
       end
     end
 
-    def into_array(array, particular, ignore, block)
+    def compute_array(array, all, ignore, action)
+      compute_size(array, all, ignore, action)
       # array[i] to trigger dependency
       array.size.times do |i|
-        into_value(array, i, array[i], particular, ignore, block)
+        compute_node(array, i, array[i], all, ignore, action)
       end
     end
 
-    def into_hash(hash, particular, ignore, block)
+    def compute_hash(hash, all, ignore, action)
+      compute_size(hash, all, ignore, action)
       # hash[key] to trigger dependency
       hash.each_key do |key|
-        into_value(hash, key, hash[key], particular, ignore, block)
+        compute_node(hash, key, hash[key], all, ignore, action)
       end
     end
 
-    def into_model(model, particular, ignore, block)
+    def compute_model(model, all, ignore, action)
       # model.send(_attr) to trigger dependency
       model.attributes.each_key do |attr|
         _attr = :"_#{attr}"
         unless ignore && ignore.include?(_attr)
-          into_value(model, _attr, model.send(_attr), particular, ignore, block)
+          compute_node(model, _attr, model.send(_attr), all, ignore, action)
         end
       end
     end
 
+    def compute_size(collection, all, ignore, action)
+      if all
+        unless ignore && ignore.include?(:size)
+          action.call(collection, :size, collection.size)
+        end  
+      end  
+    end  
   end
 end
