@@ -118,6 +118,12 @@ module Volt
     #     puts "an attribute of #{person.name} has changed"
     #   end
     # ```
+    #
+    # Any optional array of attributes to ignore may be given.
+    # The array should contain symbols matching model attributes
+    # or hash keys which you wish to ignore changes to. It may
+    # also include `:size` if you wish to ignore changes to the
+    # size of reachable arrays or hashes.
     def watch_any(root, ignore: nil, &block)
       add_watch(root, mode: :any, ignore: ignore, action: block)
     end
@@ -191,6 +197,12 @@ module Volt
     #     end
     #   end
     # ```
+    #
+    # Any optional array specifying attributes you wish to ignore
+    # may be given. The array should include symbols matching model
+    # attributes or hash keys which you wish to ignore changes to.
+    # It may also include `:size` if you wish to ignore changes
+    # to the size of reachable arrays or hashes.
     def watch_all(root, ignore: nil, &block)
       add_watch(root, mode: :all, ignore: ignore, action: block)
     end
