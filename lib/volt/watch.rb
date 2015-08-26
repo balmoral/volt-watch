@@ -31,6 +31,11 @@ module Volt
       add_watch(target, mode: :basic, action: block)
     end
 
+    def volt_watch(target, &block)
+      Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on #{target} with no block = #{block}"
+      add_watch(target, mode: :basic, action: block)
+    end
+
     # Adds a watch for a change in the values of a Volt::Model,
     # Volt::ArrayMode, Volt::ReactiveArray or Volt::ReactiveHash.
     #
