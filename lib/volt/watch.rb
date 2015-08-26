@@ -236,13 +236,13 @@ module Volt
         when :basic
           if action
             -> do
-              x = target
+              x = target.call
               action.call(x)
             end.watch!
           else
             Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on proc with no block"
             -> do
-              target
+              target.call
             end.watch!
           end
         when :values
