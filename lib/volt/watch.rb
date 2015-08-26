@@ -230,7 +230,7 @@ module Volt
 
     def add_watch(target, mode: nil, ignore: nil, action: nil)
       raise ArgumentError, 'first argument must be a Proc' unless target.is_a?(Proc)
-      raise ArgumentError, 'no block given for watch' unless action
+      # raise ArgumentError, 'no block given for watch' unless action
       @watches ||= []
       @watches << case mode
         when :basic
