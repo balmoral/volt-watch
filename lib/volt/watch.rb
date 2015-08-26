@@ -27,6 +27,7 @@ module Volt
     #   end
     # ```
     def watch(target, &block)
+      Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on #{target} with no block = #{block}"
       add_watch(target, mode: :basic, action: block)
     end
 
