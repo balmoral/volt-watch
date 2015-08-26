@@ -228,9 +228,16 @@ module Volt
       @watches ||= []
       @watches << case mode
         when :basic
-          -> do
-            action ? action.call(target.call) : target
-          end.watch!
+          if action?
+            -> do
+              x = target
+              action.call(x)
+            end.watch!
+          else
+            -> do
+              target
+            end.watch!
+          end
         when :values
           -> do
             compute(target) do |key, value|
