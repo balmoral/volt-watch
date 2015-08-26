@@ -241,9 +241,7 @@ module Volt
             end.watch!
           else
             Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on proc with no block"
-            -> do
-              target.call
-            end.watch!
+            target.watch!
           end
         when :values
           -> do
