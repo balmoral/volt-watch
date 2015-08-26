@@ -229,29 +229,29 @@ module Volt
       @watches << case mode
         when :basic
           -> do
-            action ? action.call(target.call) : target.call
-          end
+            action ? action.call(target.call) : target
+          end.watch!
         when :values
           -> do
             compute(target) do |key, value|
               action.call(key, value)
             end
-          end
+          end.watch!
         when :any
           -> do
             compute_nodes(target, false, ignore) do |value|
               action.call(value)
             end
-          end
+          end.watch!
         when :all
           -> do
             compute_nodes(target, true, ignore) do |owner, key, value|
               action.call(owner, key, value)
             end
-          end
+          end.watch!
         else
           raise ArgumentError, "unhandled watch mode #{mode.nil? ? 'nil' : mode}"
-      end.watch!
+      end
     end
 
     def compute(proc, &block)
