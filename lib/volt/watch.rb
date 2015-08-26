@@ -229,7 +229,7 @@ module Volt
       @watches << case mode
         when :basic
           -> do
-            action.call(target.call)
+            action ? action.call(target.call) : target.call
           end
         when :values
           -> do
