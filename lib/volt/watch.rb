@@ -228,12 +228,13 @@ module Volt
       @watches ||= []
       @watches << case mode
         when :basic
-          if action?
+          if action
             -> do
               x = target
               action.call(x)
             end.watch!
           else
+            Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on proc with no block"
             -> do
               target
             end.watch!
