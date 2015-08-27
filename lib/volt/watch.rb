@@ -316,9 +316,11 @@ module Volt
 
     def compute_nodes(proc, all, ignore, &block)
       root = proc.call
-      unless all do # once only here for any
-        yield root
-      end.watch!
+      unless all # once only here for any
+        -> do
+          yield root
+        end.watch!
+      end
       compute_node(nil, nil, root, all, ignore, block)
     end
 
@@ -328,9 +330,11 @@ module Volt
       else
         _ignore.is_a?(Enumerable) ? _ignore : [_ignore]
       end
-      if all && parent do
-        block.call(parent, tag, value) if all && parent
-      end.watch!
+      if all && parent
+        -> do
+          block.call(parent, tag, value) if all && parent
+        end.watch!
+      end
       if value.is_a?(Volt::Model)
         compute_model(value, all, ignore, block)
       elsif value.is_a?(Volt::ReactiveArray)
