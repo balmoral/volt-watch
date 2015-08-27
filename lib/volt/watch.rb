@@ -261,15 +261,13 @@ module Volt
             target.watch!
           end
         when :values, :any, :all
-          traverse(target, mode) do |parent, locus, value|
-            action.call(parent, locus, value)
-          end
+          traverse(target, mode, action)
         else
           raise ArgumentError, "unhandled watch mode #{mode.nil? ? 'nil' : mode}"
       end
     end
 
-    def traverse(target, mode, &block)
+    def traverse(target, mode, block)
       proc = ->{ traverse_node(target.call, mode, 0, block) }
       mode == :any ? @watches << proc.watch! : proc.call
     end
