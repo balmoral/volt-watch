@@ -134,6 +134,10 @@ module Volt
       add_watch(root, mode: :any, ignore: ignore, action: block)
     end
 
+    def when_any_change_in(root, except: nil, &block)
+      add_watch(root, mode: :any, ignore: except, action: block)
+    end
+
     def bind_any(root, to: nil, ignore: nil)
       watch_any(root, ignore: ignore) do
         to.call
