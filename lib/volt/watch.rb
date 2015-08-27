@@ -85,7 +85,7 @@ module Volt
     #   end
     # ```
     def on_change_in(model, except: nil, &block)
-      ensure_reactive(root)
+      ensure_reactive(model)
       traverse(model, :shallow, except, block)
     end
 
