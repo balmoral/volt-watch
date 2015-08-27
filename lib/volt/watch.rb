@@ -35,6 +35,7 @@ module Volt
       Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : target => #{target}"
       add_watch(target, mode: :basic)
     end
+    alias_method :activate, :reactive
 
     # Adds a watch for a change in the values of a Volt::Model,
     # Volt::ArrayMode, Volt::ReactiveArray or Volt::ReactiveHash.
@@ -100,13 +101,8 @@ module Volt
       add_watch(target, mode: :values, action: block)
     end
 
-    def when_shallow_change_in(target, &block)
-      add_watch(target, mode: :values, action: block)
-    end
-
-    def when_change_in(target, &block)
-      when_shallow_change_in(target, &block)
-    end
+    alias_method :when_shallow_change_in, :watch_values
+    alias_method :on_shallow_change_in, :watch_values
 
     # Adds a watch for any change to the object returned by
     # 'root' and for any change to any object reachable from
@@ -152,11 +148,7 @@ module Volt
       end
     end
 
-    def bind_any(root, to: nil, ignore: nil)
-      watch_any(root, ignore: ignore) do
-        to.call
-      end
-    end
+    alias_method :on_deep_change_in, :when_deep_change_in
 
     # Adds a watch for all changes to the object returned by
     # 'root' and for all change to any object reachable from
