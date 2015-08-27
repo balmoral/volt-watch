@@ -308,8 +308,8 @@ module Volt
 
     def enumerate_model(model, block)
       model.attributes.each_key do |attr|
-        _attr = attr[0] == ?_ ? attr : "_#{attr}"
-        block.call(_attr.to_sym, model.get(_attr))
+        _attr :"_#{attr}"
+        block.call(_attr, model.get(_attr))
       end
       if (fields = model.class.fields_data)
         fields.each_key do |attr|
