@@ -261,88 +261,90 @@ module Volt
             target.watch!
           end
         when :values, :any, :all
-          traverse(target, mode, action)
+          traverse(target, mode, ignore, action)
         else
           raise ArgumentError, "unhandled watch mode #{mode.nil? ? 'nil' : mode}"
       end
     end
 
-    def traverse(target, mode, block)
-      proc = ->{ traverse_node(target.call, mode, 0, block) }
+    def traverse(target, mode, ignore, block)
+      proc = ->{ traverse_node(target.call, mode, 0, ignore, block) }
       mode == :any ? @watches << proc.watch! : proc.call
     end
 
-    def traverse_node(node, mode, level, block)
+    def traverse_node(node, mode, level, ignore, block)
       level += 1
       if node.is_a?(Volt::Model)
-        traverse_model(node, mode, level, block)
+        traverse_model(node, mode, level, ignore, block)
       elsif node.is_a?(Volt::ReactiveArray)
-        traverse_array(node, mode, level, block)
+        traverse_array(node, mode, level, ignore, block)
       elsif node.is_a?(Volt::ReactiveHash)
-        traverse_hash(node, mode, level, block)
+        traverse_hash(node, mode, level, ignore, block)
       end
     end
 
-    def traverse_array(array, mode, level, block)
-      compute_size(hash, mode, ignore, block)
+    def traverse_array(array, mode, level, ignore, block)
+      compute_size(hash, mode, ignore, ignore, block)
       array.size.times do |i|
         # must access through array[i] to trigger dependency
-        compute_value(array, i, ->{ array[i] }, mode, block)
+        compute_value(array, i, ->{ array[i] }, mode, ignore, block)
       end
       unless mode == :values && level == 1
         array.size.times do |i|
-          traverse_node(array[i], mode, level, block)
+          traverse_node(array[i], mode, level, ignore, block)
         end
       end
     end
 
-    def traverse_hash(hash, mode, level, block)
+    def traverse_hash(hash, mode, level, ignore, block)
       compute_size(hash, mode, ignore, block)
       hash.each_key do |key|
         # must access through hash[key] to trigger dependency
-        compute_value(hash, key, ->{ hash[key] }, mode, block)
+        compute_value(hash, key, ->{ hash[key] }, mode, ignore, block)
       end
       unless mode == :values && level == 1
         hash.each_value do |value|
-          traverse_node(value, mode, level, block)
+          traverse_node(value, mode, level, ignore, block)
         end
       end
     end
 
-    def traverse_model(model, mode, level, block)
-      traverse_model_attrs(model, mode, level, block)
-      traverse_model_fields(model, mode, level, block)
+    def traverse_model(model, mode, level, ignore, block)
+      traverse_model_attrs(model, mode, level, ignore, block)
+      traverse_model_fields(model, mode, level, ignore, block)
     end
 
-    def traverse_model_attrs(model, mode, level, block)
+    def traverse_model_attrs(model, mode, level, ignore, block)
       model.attributes.each_key do |attr|
         # must access through get(attr) to trigger dependency
-        compute_value(model, attr, ->{ model.get(attr) }, mode, block)
+        compute_value(model, attr, ->{ model.get(attr) }, mode, ignore, block)
       end
       unless mode == :values && level == 1
         model.attributes.each_key do |attr|
-          traverse_node(model.get(:"#{attr}"), mode, level, block)
+          traverse_node(model.get(:"#{attr}"), mode, level, ignore, block)
         end
       end
     end
 
-    def traverse_model_fields(model, mode, level, block)
+    def traverse_model_fields(model, mode, level, ignore, block)
       fields = model.class.fields_data
       if fields
         fields.each_key do |attr|
           # must access through send(attr) to trigger dependency
-          compute_value(model, attr, ->{ model.send(attr) }, mode, block)
+          compute_value(model, attr, ->{ model.send(attr) }, mode, ignore, block)
         end
         unless mode == :values && level == 1
           fields.each_key do |attr|
-            traverse_node(model.send(attr), mode, level, block)
+            traverse_node(model.send(attr), mode, level, ignore, block)
           end
         end
       end
     end
 
-    def compute_value(parent, locus, value, mode, block)
-      compute_term mode, ->{ block.call(parent, locus, value.call) }
+    def compute_value(parent, locus, value, mode, ignore, block)
+      unless ignore && ignore.include?(locus)
+        compute_term mode, ->{ block.call(parent, locus, value.call) }
+      end
     end
 
     def compute_size(collection, mode, ignore, block)
