@@ -312,6 +312,7 @@ module Volt
     end
 
     def compute_term(mode, proc)
+      # :shallow and :node should watch
       mode == :root ? proc.call : add_watch(proc)
     end
 
