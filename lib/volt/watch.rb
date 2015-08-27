@@ -85,7 +85,7 @@ module Volt
     #   end
     # ```
     def on_change_in(model, except: nil, &block)
-      traverse(model, :shallow, except, block)
+      traverse_node(model, :shallow, except, block)
     end
 
     # Does a deep traversal of all values reachable from
