@@ -284,34 +284,40 @@ module Volt
     end
 
     def traverse_array(array, mode, level, ignore, block)
-      compute_size(hash, mode, ignore, ignore, block)
-      array.size.times do |i|
-        # must access through array[i] to trigger dependency
-        compute_value(array, i, ->{ array[i] }, mode, ignore, block)
-      end
-      unless mode == :values && level == 1
+      -> do
+        compute_size(hash, mode, ignore, ignore, block)
         array.size.times do |i|
-          traverse_node(array[i], mode, level, ignore, block)
+          # must access through array[i] to trigger dependency
+          compute_value(array, i, ->{ array[i] }, mode, ignore, block)
         end
-      end
+        unless mode == :values && level == 1
+          array.size.times do |i|
+            traverse_node(array[i], mode, level, ignore, block)
+          end
+        end
+      end.watch!
     end
 
     def traverse_hash(hash, mode, level, ignore, block)
-      compute_size(hash, mode, ignore, block)
-      hash.each_key do |key|
-        # must access through hash[key] to trigger dependency
-        compute_value(hash, key, ->{ hash[key] }, mode, ignore, block)
-      end
-      unless mode == :values && level == 1
-        hash.each_value do |value|
-          traverse_node(value, mode, level, ignore, block)
+      -> do
+        compute_size(hash, mode, ignore, block)
+        hash.each_key do |key|
+          # must access through hash[key] to trigger dependency
+          compute_value(hash, key, ->{ hash[key] }, mode, ignore, block)
         end
-      end
+        unless mode == :values && level == 1
+          hash.each_value do |value|
+            traverse_node(value, mode, level, ignore, block)
+          end
+        end
+      end.watch!
     end
 
     def traverse_model(model, mode, level, ignore, block)
-      traverse_model_attrs(model, mode, level, ignore, block)
-      traverse_model_fields(model, mode, level, ignore, block)
+      -> do
+        traverse_model_attrs(model, mode, level, ignore, block)
+        traverse_model_fields(model, mode, level, ignore, block)
+      end.watch!
     end
 
     def traverse_model_attrs(model, mode, level, ignore, block)
