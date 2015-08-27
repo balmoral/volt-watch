@@ -328,15 +328,16 @@ module Volt
     end
 
     def traverse_model_fields(model, mode, level, block)
-      if (fields = model.class.fields_data)
+      fields = model.class.fields_data
+      if fields
         fields.each_key do |attr|
           # must access through send(attr) to trigger dependency
           compute_value(model, attr, ->{ model.send(attr) }, mode, block)
         end
-      end
-      unless mode == :values && level == 1
-        fields.each_key do |attr|
-          traverse_node(model.send(attr), mode, level, block)
+        unless mode == :values && level == 1
+          fields.each_key do |attr|
+            traverse_node(model.send(attr), mode, level, block)
+          end
         end
       end
     end
