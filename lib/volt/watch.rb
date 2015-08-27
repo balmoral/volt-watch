@@ -134,6 +134,12 @@ module Volt
       add_watch(root, mode: :any, ignore: ignore, action: block)
     end
 
+    def bind_any(root, to: nil, ignore: nil)
+      watch_any(root, ignore: ignpre) do
+        to.call
+      end
+    end
+
     # Adds a watch for all changes to the object returned by
     # 'root' and for all change to any object reachable from
     # the root.
