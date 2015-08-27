@@ -286,10 +286,10 @@ module Volt
     end
 
     def traverse_array(array, mode, level, block)
-      compute_size(hash, all, ignore, block)
+      compute_size(hash, mode, ignore, block)
       array.size.times do |i|
         # must access through array[i] to trigger dependency
-        compute(array, i, ->{ array[i] }, mode, block)
+        compute_value(array, i, ->{ array[i] }, mode, block)
       end
       unless mode == :values && level == 1
         array.size.times do |i|
@@ -299,10 +299,10 @@ module Volt
     end
 
     def traverse_hash(hash, mode, level, block)
-      compute_size(hash, all, ignore, block)
+      compute_size(hash, mode, ignore, block)
       hash.each_key do |key|
         # must access through hash[key] to trigger dependency
-        compute(hash, key, ->{ hash[key] }, mode, block)
+        compute_value(hash, key, ->{ hash[key] }, mode, block)
       end
       unless mode == :values && level == 1
         hash.each_value do |value|
@@ -312,43 +312,50 @@ module Volt
     end
 
     def traverse_model(model, mode, level, block)
+      traverse_model_attrs(model, mode, level, block)
+      traverse_model_fields(model, mode, level, block)
+    end
+
+    def traverse_model_attrs(model, mode, level, block)
       model.attributes.each_key do |attr|
         # must access through get(_attr) to trigger dependency
         _attr = :"_#{attr}"
-        compute(model, _attr, ->{ model.get(_attr) }, mode, block)
-      end
-      if (fields = model.class.fields_data)
-        fields.each_key do |attr|
-          # must access through send(attr) to trigger dependency
-          compute(model, attr, ->{ model.send(attr) }, mode, block)
-        end
+        compute_value(model, _attr, ->{ model.get(_attr) }, mode, block)
       end
       unless mode == :values && level == 1
         model.attributes.each_key do |attr|
           traverse_node(model.get(:"_#{attr}"), mode, level, block)
         end
       end
-      if fields
+    end
+
+    def traverse_model_fields(model, mode, level, block)
+      if (fields = model.class.fields_data)
+        fields.each_key do |attr|
+          # must access through send(attr) to trigger dependency
+          compute_value(model, attr, ->{ model.send(attr) }, mode, block)
+        end
+      end
+      unless mode == :values && level == 1
         fields.each_key do |attr|
           traverse_node(model.send(attr), mode, level, block)
         end
       end
     end
 
-    def compute(parent, locus, value, mode, block)
-      block.call(
-        parent,
-        locus,
-        mode == :any ? value.call : value.watch!
-      )
+    def compute_value(parent, locus, value, mode, block)
+      compute_term mode, ->{ block.call(parent, locus, value.call) }
     end
 
-    def compute_size(collection, all, ignore, block)
-      if all
-        unless ignore && ignore.include?(:size)
-          block.call(collection, :size, collection.size)
-        end  
-      end  
-    end  
+    def compute_size(collection, mode, ignore, block)
+      unless ignore && ignore.include?(:size)
+        compute_term mode, ->{ block.call(collection, :size, collection.size) }
+      end
+    end
+
+    def compute_term(mode, proc)
+      mode == :any ? proc.call : proc.watch!
+    end
+
   end
 end
