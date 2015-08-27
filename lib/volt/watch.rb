@@ -9,7 +9,7 @@ module Volt
     # For example:
     #
     # ```
-    #   reactive ->{ puts person._name }
+    #   activate ->{ puts person._name }
     # ```
     #
     # The behaviour is identical to doing
@@ -18,12 +18,11 @@ module Volt
     #   ->{ puts person._name }.watch!
     # ```
     #
-    # Aliases are :watch and :activate
-    def reactive(proc)
+    # Alias is :watch
+    def activate(proc)
       add_watch(proc)
     end
-    alias_method :watch, :reactive
-    alias_method :activate, :reactive
+    alias_method :watch, :activate
 
 
     # Adds a watch for a shallow change in the contents
