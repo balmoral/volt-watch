@@ -104,6 +104,10 @@ module Volt
       add_watch(target, mode: :values, action: block)
     end
 
+    def when_change_in(target, &block)
+      when_shallow_change_in(target, &block)
+    end
+
     # Adds a watch for any change to the object returned by
     # 'root' and for any change to any object reachable from
     # the root.
@@ -138,7 +142,7 @@ module Volt
       add_watch(root, mode: :any, ignore: ignore, action: block)
     end
 
-    def when_any_change_in(root, except: nil, &block)
+    def when_deep_change_in(root, except: nil, &block)
       if block.arity <= 1
         add_watch(root, mode: :any, ignore: except, action: block)
       elsif block.arity <= 3
