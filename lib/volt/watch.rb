@@ -317,12 +317,12 @@ module Volt
     def traverse_model_attrs(model, mode, level, block)
       model.attributes.each_key do |attr|
         # must access through get(_attr) to trigger dependency
-        _attr = :"_#{attr}"
+        _attr = :"#{attr}"
         compute_value(model, _attr, ->{ model.get(_attr) }, mode, block)
       end
       unless mode == :values && level == 1
         model.attributes.each_key do |attr|
-          traverse_node(model.get(:"_#{attr}"), mode, level, block)
+          traverse_node(model.get(:"#{attr}"), mode, level, block)
         end
       end
     end
