@@ -31,9 +31,6 @@ module Volt
     # Volt::Model, Volt::ArrayModel, Volt::ReactiveArray)
     # or Volt::ReactiveHash.
     #
-    # 'target' must be a Proc which returns the value of the model,
-    # array or hash.
-    #
     # When any value in the model, array or hash changes then
     # the given block will be called.
     #
@@ -88,10 +85,9 @@ module Volt
     #     puts "dictionary[#{key}] => #{store.dictionary[key]}"
     #   end
     # ```
-    def when_change_in(model, except: nil, &block)
+    def on_change_in(model, except: nil, &block)
       traverse(model, :shallow, except, block)
     end
-    alias_method :on_change_in, :when_change_in
 
     # Does a deep traversal of all values reachable from
     # the given root object.
@@ -101,7 +97,7 @@ module Volt
     #   * size and elements of Volt::ArrayModel's
     #   * size and elements of Volt::ReactiveArray's
     #   * size and key-value pairs of Volt::ReactiveHash's
-    #   * nested values of the above types
+    #   * nested values of the above
     #
     # The root may be a Volt::Model, Volt::ArrayModel,
     # Volt::ReactiveArray or Volt::ReactiveHash.
@@ -198,16 +194,13 @@ module Volt
     #   end
     # ```
     #
-    def when_deep_change_in(root, except: nil, &block)
+    def on_deep_change_in(root, except: nil, &block)
       if block.arity <= 1
-        traverse(root, :root_watch, ignore, block)
-      elsif block.arity <= 3
-        traverse(root, :node_watch, except, block)
+        add_watch( ->{ traverse_node(root, :root, except, block) } )
       else
-        raise ArgumentError, "watch_any_change_in block should expect either 0, 1, 2 or 3 arguments"
+        traverse_node(root, :node, except, block)
       end
     end
-    alias_method :on_deep_change_in, :when_deep_change_in
 
     # Stops and destroys all current watches.
     # Call when watches are no longer required.
@@ -223,11 +216,6 @@ module Volt
     end
 
     private
-
-    def traverse(target, mode, except, block)
-      proc = ->{ traverse_node(target.call, mode, except, block) }
-      mode == :root_watch ? add_watch(proc) : proc.call
-    end
 
     def traverse_node(node, mode, except, block)
       if node.is_a?(Volt::Model)
@@ -310,7 +298,7 @@ module Volt
     end
 
     def compute_term(mode, proc)
-      mode == :node_watch ? add_watch(proc) : proc.call
+      mode == :node ? add_watch(proc) : proc.call
     end
 
     def add_watch(proc)
