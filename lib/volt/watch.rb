@@ -262,8 +262,8 @@ module Volt
           end
         when :values
           -> do
-            compute(target) do |key, value|
-              action.call(key, value)
+            compute(target) do |tag, value|
+              action.call(tag, value)
             end
           end.watch!
         when :any
@@ -274,8 +274,8 @@ module Volt
           end.watch!
         when :all
           -> do
-            compute_nodes(target, true, ignore) do |owner, key, value|
-              action.call(owner, key, value)
+            compute_nodes(target, true, ignore) do |owner, tag, value|
+              action.call(owner, tag, value)
             end
           end.watch!
         else
@@ -308,8 +308,11 @@ module Volt
 
     def enumerate_model(model, block)
       model.attributes.each_key do |attr|
-        _attr = :"_#{attr}"
-        block.call(_attr, model.get(_attr))
+        _attr = attr[0] == ?_ ? attr : "_#{attr}"
+        block.call(_attr.to_sym, model.get(_attr))
+      end
+      model.class.field_data.each_key do |attr|
+        block.call(attr.to_sym, model.send(attr))
       end
     end
 
