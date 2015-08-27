@@ -103,6 +103,8 @@ module Volt
 
     alias_method :when_shallow_change_in, :watch_values
     alias_method :on_shallow_change_in, :watch_values
+    alias_method :on_change_in, :watch_values
+    alias_method :when_change_in, :watch_values
 
     # Adds a watch for any change to the object returned by
     # 'root' and for any change to any object reachable from
