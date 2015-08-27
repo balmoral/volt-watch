@@ -228,7 +228,7 @@ module Volt
       Volt::Model === model ||
       Volt::ArrayModel === model ||
       Volt::ReactiveArray == model ||
-      Vot::ReactiveHash === model
+      Volt::ReactiveHash === model
     end
 
     def traverse(node, mode, except, block)
