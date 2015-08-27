@@ -311,7 +311,7 @@ module Volt
         _attr = attr[0] == ?_ ? attr : "_#{attr}"
         block.call(_attr.to_sym, model.get(_attr))
       end
-      if (fields = model.class.field_data)
+      if (fields = model.class.fields_data)
         fields.each_key do |attr|
           block.call(attr.to_sym, model.send(attr))
         end
