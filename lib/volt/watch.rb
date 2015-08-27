@@ -1,44 +1,35 @@
 module Volt
   module Watch
 
-    # Adds a watch for a change in an attribute of a Volt::Model.
+    # Add reactivity to the given proc.
     #
-    # 'target' must be a Proc which returns the value of the attribute,
-    # for example: `->{ person._name }`.
-    #
-    # When the attribute changes then the given block will be called.
-    #
-    # The new value of the attribute will be passed as an argument
-    # to the block. The block is not required to define the argument.
+    # The proc will be called if any reactive
+    # attribute accessed in the proc changes.
     #
     # For example:
     #
     # ```
-    #   watch ->{ person._name} do |name|
-    #     puts name
-    #   end
-    # ```                                
+    #   reactive ->{ puts person._name }
+    # ```
     #
-    # or
+    # The behaviour is identical to doing
     #
     # ```
-    #   watch ->{ person._name} do
-    #     puts person._name
-    #   end
+    #   ->{ puts person._name }.watch!
     # ```
-    def watch(target, &block)
-      Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on #{target} with no block = #{block}"
-      add_watch(target, mode: :basic, action: block)
+    #
+    # Aliases are :watch and :activate
+    def reactive(proc)
+      add_watch(proc)
     end
-
-    def reactive(target)
-      Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : target => #{target}"
-      add_watch(target, mode: :basic)
-    end
+    alias_method :watch, :reactive
     alias_method :activate, :reactive
 
-    # Adds a watch for a change in the values of a Volt::Model,
-    # Volt::ArrayMode, Volt::ReactiveArray or Volt::ReactiveHash.
+
+    # Adds a watch for a shallow change in the contents
+    # (attributes, elements, or key-value pairs) of a
+    # Volt::Model, Volt::ArrayModel, Volt::ReactiveArray)
+    # or Volt::ReactiveHash.
     #
     # 'target' must be a Proc which returns the value of the model,
     # array or hash.
@@ -97,85 +88,60 @@ module Volt
     #     puts "dictionary[#{key}] => #{store.dictionary[key]}"
     #   end
     # ```
-    def watch_values(target, &block)
-      add_watch(target, mode: :values, action: block)
+    def when_change_in(model, except: nil, &block)
+      traverse(model, :shallow, except, block)
     end
+    alias_method :on_change_in, :when_change_in
 
-    alias_method :when_shallow_change_in, :watch_values
-    alias_method :on_shallow_change_in, :watch_values
-    alias_method :on_change_in, :watch_values
-    alias_method :when_change_in, :watch_values
-
-    # Adds a watch for any change to the object returned by
-    # 'root' and for any change to any object reachable from
-    # the root.
+    # Does a deep traversal of all values reachable from
+    # the given root object.
     #
-    # The root object may be a Volt::Model, Volt::ArrayModel,
+    # Such values include:
+    #   * attributes and field values of Volt::Model's
+    #   * size and elements of Volt::ArrayModel's
+    #   * size and elements of Volt::ReactiveArray's
+    #   * size and key-value pairs of Volt::ReactiveHash's
+    #   * nested values of the above types
+    #
+    # The root may be a Volt::Model, Volt::ArrayModel,
     # Volt::ReactiveArray or Volt::ReactiveHash.
     #
-    # 'root' must be a Proc which returns the model, array or hash.
+    # If the given block accepts zero or one argument then
+    # a single watch will be created which results in the
+    # block being called with the root object as the argument
+    # whenever any change occurs at any depth. This mode is
+    # suitable when watching for deep changes to the contents
+    # of a model/array/hash but you DO NOT need to identify
+    # the particular value that changed.
     #
-    # If the value of the root object or any reactive object reachable
-    # from it changes then the given block will be called with the root
-    # object as the argument.
+    # If the given block accepts two or more arguments then
+    # a watch will be created on each value reachable from
+    # the root. The block will be called when any value changes
+    # and will be passed three arguments:
+    #   1. the parent (owner) of the value that changed
+    #      i.e. the model, array or hash holding the value
+    #   2. the locus of the value, either:
+    #      * the attribute or field name for a model
+    #      * the index in an array
+    #      * the key in a hash
+    #      * the symbol :size if array or hash size changes
+    #   3. the new value
+    # The block may choose to accept 2 or 3 arguments.
+    # This mode is suitable when watching for deep changes
+    # to the contents of a model/array/hash and you DO need
+    # to identify what value that changed.
     #
-    # Note: use this method when you are watching for changes to the
-    # 'contents' of a model/array/hash (and any reachable object) but
-    # you DO NOT need to identify what in particular changed.
-    #
-    # For example:
-    #
-    # ```
-    #   watch_any ->{ person } do
-    #     puts "an attribute of #{person.name} has changed"
-    #   end
-    # ```
-    #
-    # Any optional array of attributes to ignore may be given.
-    # The array should contain symbols matching model attributes
-    # or hash keys which you wish to ignore changes to. It may
-    # also include `:size` if you wish to ignore changes to the
-    # size of reachable arrays or hashes.
-    def watch_any(root, ignore: nil, &block)
-      add_watch(root, mode: :any, ignore: ignore, action: block)
-    end
-
-    def when_deep_change_in(root, except: nil, &block)
-      if block.arity <= 1
-        add_watch(root, mode: :any, ignore: except, action: block)
-      elsif block.arity <= 3
-        add_watch(root, mode: :all, ignore: except, action: block)
-      else
-        raise ArgumentError, "watch_any_change_in block should expect either 0, 1, 2 or 3 arguments"
-      end
-    end
-
-    alias_method :on_deep_change_in, :when_deep_change_in
-
-    # Adds a watch for all changes to the object returned by
-    # 'root' and for all change to any object reachable from
-    # the root.
-    #
-    # The root object may be a Volt::Model, Volt::ArrayModel,
-    # Volt::ReactiveArray or Volt::ReactiveHash.
-    #
-    # 'root' must be a Proc which returns the model, array or hash.
-    #
-    # If the root object or any reactive object (node) reachable
-    # from it changes then the given block will be called with the
-    # parent of the changed value as the first argument, the
-    # attribute_name/index/key associated with the value as the
-    # second argument, and the value (node) itself as the third argument.
-    #
-    # Additionally, for arrays and hashes, if the size of the array/hash
-    # has changed the given block will be called with the
-    # array/hash whose size has changed as the first argument, the
-    # symbol `:size` as the second argument, and the new size of
-    # the array/hash as as the third argument.
-    #
-    # Note: use this method when you are watching for changes to the
-    # 'contents' of a model/array/hash (and any reachable object) and
-    # you DO need to identify the particular value that changed.
+    # In both modes, any optional argument specifying attributes
+    # you don't want to watch may be given with the :except
+    # keyword argument. The argument should be a symbol or
+    # integer or array of symbols or integers matching model
+    # attributes, array indexes or hash keys which you wish
+    # to ignore changes to. It may also include `:size` if you
+    # wish to ignore changes to the size of arrays or hashes.
+    # TODO: make :except more precise, perhaps with pairs of
+    # [parent, locus] to identify exceptions more accurately.
+    # Also allow for [Class, locus] to except any object of
+    # the given class.
     #
     # For example:
     #
@@ -201,35 +167,47 @@ module Volt
     #     field :quantity
     #   end
     #
-    #   def watch_orders
-    #     watch_all ->{ orders } do |parent, tag, value|
+    #   ...
+    #
+    #   def shallow_order_watch
+    #     # one argument in given block has no detail of change
+    #     on_deep_change_in orders do |store._orders|
+    #       puts "something unknown changed in orders"
+    #     end
+    #   end
+    #
+    #   def deep_order_watch
+    #     # three arguments in given block gives detail of change
+    #     on_deep_change_in store._orders do |context, locus, value|
     #       case
-    #         when parent == orders
-    #           if tag == :size
+    #         when context == store._orders
+    #           if locus == :size
     #             puts "orders.size has changed to #{value}"
     #           else
-    #             index = tag
-    #             puts "orders[#{index}] has changed to #{orders[index]}"
+    #             index = locus
+    #             puts "orders[#{index}] has changed to #{value}"
     #           end
-    #         when parent.is_a? Customer
-    #           customer, attr = value, tag
-    #           puts "customer #{customer.id} #{attr} has changed to #{customer.get(attr)}"
-    #         when parent.is_a? Order
-    #           order, attr = value, tag
-    #           puts "order #{order.id} #{attr} has changed to #{order.get(attr)}"
+    #         when context.is_a? Order
+    #           order, attr = context, locus
+    #           puts "Order[#{order.id}].#{attr} has changed to #{value}"
+    #         when context.is_a? Customer
+    #           customer, attr = context, locus
+    #           puts "customer #{customer.id} #{attr} has changed to #{value}"
     #       end
     #     end
     #   end
     # ```
     #
-    # Any optional array specifying attributes you wish to ignore
-    # may be given. The array should include symbols matching model
-    # attributes or hash keys which you wish to ignore changes to.
-    # It may also include `:size` if you wish to ignore changes
-    # to the size of reachable arrays or hashes.
-    def watch_all(root, ignore: nil, &block)
-      add_watch(root, mode: :all, ignore: ignore, action: block)
+    def when_deep_change_in(root, except: nil, &block)
+      if block.arity <= 1
+        traverse(root, :root_watch, ignore, block)
+      elsif block.arity <= 3
+        traverse(root, :node_watch, except, block)
+      else
+        raise ArgumentError, "watch_any_change_in block should expect either 0, 1, 2 or 3 arguments"
+      end
     end
+    alias_method :on_deep_change_in, :when_deep_change_in
 
     # Stops and destroys all current watches.
     # Call when watches are no longer required.
@@ -246,121 +224,97 @@ module Volt
 
     private
 
-    def add_watch(target, mode: nil, ignore: nil, action: nil)
-      raise ArgumentError, 'first argument must be a Proc' unless target.is_a?(Proc)
-      # raise ArgumentError, 'no block given for watch' unless action
-      @watches ||= []
-      @watches << case mode
-        when :basic
-          if action
-            -> do
-              action.call(target.call)
-            end.watch!
-          else
-            Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on proc with no block"
-            target.watch!
-          end
-        when :values, :any, :all
-          traverse(target, mode, ignore, action)
-        else
-          raise ArgumentError, "unhandled watch mode #{mode.nil? ? 'nil' : mode}"
-      end
+    def traverse(target, mode, except, block)
+      proc = ->{ traverse_node(target.call, mode, except, block) }
+      mode == :root_watch ? add_watch(proc) : proc.call
     end
 
-    def traverse(target, mode, ignore, block)
-      proc = ->{ traverse_node(target.call, mode, 0, ignore, block) }
-      mode == :any ? @watches << proc.watch! : proc.call
-    end
-
-    def traverse_node(node, mode, level, ignore, block)
-      level += 1
+    def traverse_node(node, mode, except, block)
       if node.is_a?(Volt::Model)
-        traverse_model(node, mode, level, ignore, block)
+        traverse_model(node, mode, except, block)
       elsif node.is_a?(Volt::ReactiveArray)
-        traverse_array(node, mode, level, ignore, block)
+        traverse_array(node, mode, except, block)
       elsif node.is_a?(Volt::ReactiveHash)
-        traverse_hash(node, mode, level, ignore, block)
+        traverse_hash(node, mode, except, block)
       end
     end
 
-    def traverse_array(array, mode, level, ignore, block)
-      -> do
-        compute_size(hash, mode, ignore, ignore, block)
+    def traverse_array(array, mode, except, block)
+      compute_size(hash, mode, except, block)
+      array.size.times do |i|
+        # must access through array[i] to trigger dependency
+        compute_value(array, i, ->{ array[i] }, mode, except, block)
+      end
+      unless mode == :shallow 
         array.size.times do |i|
-          # must access through array[i] to trigger dependency
-          compute_value(array, i, ->{ array[i] }, mode, ignore, block)
+          traverse_node(array[i], mode, except, block)
         end
-        unless mode == :values && level == 1
-          array.size.times do |i|
-            traverse_node(array[i], mode, level, ignore, block)
-          end
-        end
-      end.watch!
+      end
     end
 
-    def traverse_hash(hash, mode, level, ignore, block)
-      -> do
-        compute_size(hash, mode, ignore, block)
-        hash.each_key do |key|
-          # must access through hash[key] to trigger dependency
-          compute_value(hash, key, ->{ hash[key] }, mode, ignore, block)
+    def traverse_hash(hash, mode, except, block)
+      compute_size(hash, mode, except, block)
+      hash.each_key do |key|
+        # must access through hash[key] to trigger dependency
+        compute_value(hash, key, ->{ hash[key] }, mode, except, block)
+      end
+      unless mode == :shallow
+        hash.each_value do |value|
+          traverse_node(value, mode, except, block)
         end
-        unless mode == :values && level == 1
-          hash.each_value do |value|
-            traverse_node(value, mode, level, ignore, block)
-          end
-        end
-      end.watch!
+      end
     end
 
-    def traverse_model(model, mode, level, ignore, block)
-      -> do
-        traverse_model_attrs(model, mode, level, ignore, block)
-        traverse_model_fields(model, mode, level, ignore, block)
-      end.watch!
+    def traverse_model(model, mode, except, block)
+      traverse_model_attrs(model, mode, except, block)
+      traverse_model_fields(model, mode, except, block)
     end
 
-    def traverse_model_attrs(model, mode, level, ignore, block)
+    def traverse_model_attrs(model, mode, except, block)
       model.attributes.each_key do |attr|
         # must access through get(attr) to trigger dependency
-        compute_value(model, attr, ->{ model.get(attr) }, mode, ignore, block)
+        compute_value(model, attr, ->{ model.get(attr) }, mode, except, block)
       end
-      unless mode == :values && level == 1
+      unless mode == :shallow
         model.attributes.each_key do |attr|
-          traverse_node(model.get(:"#{attr}"), mode, level, ignore, block)
+          traverse_node(model.get(:"#{attr}"), mode, except, block)
         end
       end
     end
 
-    def traverse_model_fields(model, mode, level, ignore, block)
+    def traverse_model_fields(model, mode, except, block)
       fields = model.class.fields_data
       if fields
         fields.each_key do |attr|
           # must access through send(attr) to trigger dependency
-          compute_value(model, attr, ->{ model.send(attr) }, mode, ignore, block)
+          compute_value(model, attr, ->{ model.send(attr) }, mode, except, block)
         end
-        unless mode == :values && level == 1
+        unless mode == :shallow 
           fields.each_key do |attr|
-            traverse_node(model.send(attr), mode, level, ignore, block)
+            traverse_node(model.send(attr), mode, except, block)
           end
         end
       end
     end
 
-    def compute_value(parent, locus, value, mode, ignore, block)
-      unless ignore && ignore.include?(locus)
+    def compute_value(parent, locus, value, mode, except, block)
+      unless except && except.include?(locus)
         compute_term mode, ->{ block.call(parent, locus, value.call) }
       end
     end
 
-    def compute_size(collection, mode, ignore, block)
-      unless ignore && ignore.include?(:size)
+    def compute_size(collection, mode, except, block)
+      unless except && except.include?(:size)
         compute_term mode, ->{ block.call(collection, :size, collection.size) }
       end
     end
 
     def compute_term(mode, proc)
-      mode == :any ? proc.call : proc.watch!
+      mode == :node_watch ? add_watch(proc) : proc.call
+    end
+
+    def add_watch(proc)
+      (@watches ||= []) << proc.watch!
     end
 
   end
