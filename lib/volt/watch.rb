@@ -277,11 +277,11 @@ module Volt
     def traverse_node(node, mode, level, block)
       level += 1
       if node.is_a?(Volt::Model)
-        traverse_model(value, mode, level, block)
+        traverse_model(node, mode, level, block)
       elsif node.is_a?(Volt::ReactiveArray)
-        traverse_array(value, mode, level, block)
+        traverse_array(node, mode, level, block)
       elsif node.is_a?(Volt::ReactiveHash)
-        traverse_hash(value, mode, level, block)
+        traverse_hash(node, mode, level, block)
       end
     end
 
