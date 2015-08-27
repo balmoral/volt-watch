@@ -31,7 +31,7 @@ module Volt
       add_watch(target, mode: :basic, action: block)
     end
 
-    def react(target)
+    def reactive(target)
       Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : target => #{target}"
       add_watch(target, mode: :basic)
     end
@@ -100,6 +100,10 @@ module Volt
       add_watch(target, mode: :values, action: block)
     end
 
+    def when_shallow_change_in(target, &block)
+      add_watch(target, mode: :values, action: block)
+    end
+
     # Adds a watch for any change to the object returned by
     # 'root' and for any change to any object reachable from
     # the root.
@@ -135,7 +139,13 @@ module Volt
     end
 
     def when_any_change_in(root, except: nil, &block)
-      add_watch(root, mode: :any, ignore: except, action: block)
+      if block.arity <= 1
+        add_watch(root, mode: :any, ignore: except, action: block)
+      elsif block.arity <= 3
+        add_watch(root, mode: :all, ignore: except, action: block)
+      else
+        raise ArgumentError, "watch_any_change_in block should expect either 0, 1, 2 or 3 arguments"
+      end
     end
 
     def bind_any(root, to: nil, ignore: nil)
@@ -311,7 +321,12 @@ module Volt
       compute_node(nil, nil, root, all, ignore, block)
     end
 
-    def compute_node(parent, tag, value, all, ignore, block)
+    def compute_node(parent, tag, value, all, _ignore, block)
+      ignore = if _ignore.nil?
+        nil
+      else
+        _ignore.is_a?(Enumerable) ? _ignore : [_ignore]
+      end
       block.call(parent, tag, value) if all && parent
       if value.is_a?(Volt::Model)
         compute_model(value, all, ignore, block)
