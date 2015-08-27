@@ -260,114 +260,87 @@ module Volt
             Volt.logger.debug "#{self.class.name}##{__method__}[#{__LINE__}] : setting basic watch on proc with no block"
             target.watch!
           end
-        when :values
-          -> do
-            compute(target) do |tag, value|
-              action.call(tag, value)
-            end
-          end.watch!
-        when :any
-          compute_nodes(target, false, ignore) do |value|
-            action.call(value)
-          end
-        when :all
-          compute_nodes(target, true, ignore) do |owner, tag, value|
-            action.call(owner, tag, value)
+        when :values, :any, :all
+          traverse(target, mode) do |parent, locus, value|
+            action.call(parent, locus, value)
           end
         else
           raise ArgumentError, "unhandled watch mode #{mode.nil? ? 'nil' : mode}"
       end
     end
 
-    def compute(proc, &block)
-      value = proc.call
-      if value.is_a?(Volt::Model)
-        enumerate_model(value, block)
-      elsif value.is_a?(Volt::ReactiveArray)
-        enumerate_array(value, block)
-      elsif value.is_a?(Volt::ReactiveHash)
-        enumerate_hash(value, block)
+    def traverse(target, mode, &block)
+      proc = ->{ traverse_node(target.call, mode, 0, block) }
+      mode == :any ? @watches << proc.watch! : proc.call
+    end
+
+    def traverse_node(node, mode, level, block)
+      level += 1
+      if node.is_a?(Volt::Model)
+        traverse_model(value, mode, level, block)
+      elsif node.is_a?(Volt::ReactiveArray)
+        traverse_array(value, mode, level, block)
+      elsif node.is_a?(Volt::ReactiveHash)
+        traverse_hash(value, mode, level, block)
       end
     end
 
-    def enumerate_array(array, block)
+    def traverse_array(array, mode, level, block)
+      compute_size(hash, all, ignore, block)
       array.size.times do |i|
-        block.call(i, array[i])
+        # must access through array[i] to trigger dependency
+        compute(array, i, ->{ array[i] }, mode, block)
+      end
+      unless mode == :values && level == 1
+        array.size.times do |i|
+          traverse_node(array[i], mode, level, block)
+        end
       end
     end
 
-    def enumerate_hash(hash, block)
+    def traverse_hash(hash, mode, level, block)
+      compute_size(hash, all, ignore, block)
       hash.each_key do |key|
-        block.call(key, hash[key])
+        # must access through hash[key] to trigger dependency
+        compute(hash, key, ->{ hash[key] }, mode, block)
+      end
+      unless mode == :values && level == 1
+        hash.each_value do |value|
+          traverse_node(value, mode, level, block)
+        end
       end
     end
 
-    def enumerate_model(model, block)
+    def traverse_model(model, mode, level, block)
       model.attributes.each_key do |attr|
+        # must access through get(_attr) to trigger dependency
         _attr = :"_#{attr}"
-        block.call(_attr, model.get(_attr))
+        compute(model, _attr, ->{ model.get(_attr) }, mode, block)
       end
       if (fields = model.class.fields_data)
         fields.each_key do |attr|
-          block.call(attr.to_sym, model.send(attr))
+          # must access through send(attr) to trigger dependency
+          compute(model, attr, ->{ model.send(attr) }, mode, block)
+        end
+      end
+      unless mode == :values && level == 1
+        model.attributes.each_key do |attr|
+          traverse_node(model.get(:"_#{attr}"), mode, level, block)
+        end
+      end
+      if fields
+        fields.each_key do |attr|
+          traverse_node(model.send(attr), mode, level, block)
         end
       end
     end
 
-    def compute_nodes(proc, all, ignore, &block)
-      root = proc.call
-      unless all # once only here for any
-        -> do
-          yield root
-        end.watch!
-      end
-      compute_node(nil, nil, root, all, ignore, block)
-    end
-
-    def compute_node(parent, tag, value, all, _ignore, block)
-      ignore = if _ignore.nil?
-        nil
-      else
-        _ignore.is_a?(Enumerable) ? _ignore : [_ignore]
-      end
-      if all && parent
-        -> do
-          block.call(parent, tag, value) if all && parent
-        end.watch!
-      end
-      if value.is_a?(Volt::Model)
-        compute_model(value, all, ignore, block)
-      elsif value.is_a?(Volt::ReactiveArray)
-        compute_array(value, all, ignore, block)
-      elsif value.is_a?(Volt::ReactiveHash)
-        compute_hash(value, all, ignore, block)
-      end
-    end
-
-    def compute_array(array, all, ignore, block)
-      compute_size(array, all, ignore, block)
-      # array[i] to trigger dependency
-      array.size.times do |i|
-        compute_node(array, i, array[i], all, ignore, block)
-      end
-    end
-
-    def compute_hash(hash, all, ignore, block)
-      compute_size(hash, all, ignore, block)
-      # hash[key] to trigger dependency
-      hash.each_key do |key|
-        compute_node(hash, key, hash[key], all, ignore, block)
-      end
-    end
-
-    def compute_model(model, all, ignore, block)
-      # model.send(_attr) to trigger dependency
-      model.attributes.each_key do |attr|
-        _attr = :"_#{attr}"
-        unless ignore && ignore.include?(_attr)
-          compute_node(model, _attr, model.send(_attr), all, ignore, block)
-        end
-      end
+    def compute(parent, locus, value, mode, block)
+      block.call(
+        parent,
+        locus,
+        mode == :any ? value.call : value.watch!
+      )
     end
 
     def compute_size(collection, all, ignore, block)
