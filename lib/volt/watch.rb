@@ -135,7 +135,7 @@ module Volt
     end
 
     def bind_any(root, to: nil, ignore: nil)
-      watch_any(root, ignore: ignpre) do
+      watch_any(root, ignore: ignore) do
         to.call
       end
     end
