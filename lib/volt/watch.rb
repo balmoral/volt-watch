@@ -267,17 +267,13 @@ module Volt
             end
           end.watch!
         when :any
-          -> do
-            compute_nodes(target, false, ignore) do |value|
-              action.call(value)
-            end
-          end.watch!
+          compute_nodes(target, false, ignore) do |value|
+            action.call(value)
+          end
         when :all
-          -> do
-            compute_nodes(target, true, ignore) do |owner, tag, value|
-              action.call(owner, tag, value)
-            end
-          end.watch!
+          compute_nodes(target, true, ignore) do |owner, tag, value|
+            action.call(owner, tag, value)
+          end
         else
           raise ArgumentError, "unhandled watch mode #{mode.nil? ? 'nil' : mode}"
       end
@@ -320,7 +316,9 @@ module Volt
 
     def compute_nodes(proc, all, ignore, &block)
       root = proc.call
-      yield(root) unless all # once only here for any
+      unless all do # once only here for any
+        yield root
+      end.watch!
       compute_node(nil, nil, root, all, ignore, block)
     end
 
@@ -330,7 +328,9 @@ module Volt
       else
         _ignore.is_a?(Enumerable) ? _ignore : [_ignore]
       end
-      block.call(parent, tag, value) if all && parent
+      if all && parent do
+        block.call(parent, tag, value) if all && parent
+      end.watch!
       if value.is_a?(Volt::Model)
         compute_model(value, all, ignore, block)
       elsif value.is_a?(Volt::ReactiveArray)
