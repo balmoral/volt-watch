@@ -312,7 +312,7 @@ module Volt
     end
 
     def compute_term(mode, proc)
-      mode == :node ? add_watch(proc) : proc.call
+      mode == :root ? proc.call : add_watch(proc)
     end
 
     def add_watch(proc)
