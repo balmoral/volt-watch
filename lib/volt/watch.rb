@@ -85,7 +85,7 @@ module Volt
     #   end
     # ```
     def on_change_in(model, except: nil, &block)
-      traverse_node(model, :shallow, except, block)
+      traverse(model, :shallow, except, block)
     end
 
     # Does a deep traversal of all values reachable from
@@ -195,9 +195,9 @@ module Volt
     #
     def on_deep_change_in(root, except: nil, &block)
       if block.arity <= 1
-        add_watch( ->{ traverse_node(root, :root, except, block) } )
+        add_watch( ->{ traverse(root, :root, except, block) } )
       else
-        traverse_node(root, :node, except, block)
+        traverse(root, :node, except, block)
       end
     end
 
@@ -216,7 +216,7 @@ module Volt
 
     private
 
-    def traverse_node(node, mode, except, block)
+    def traverse(node, mode, except, block)
       if node.is_a?(Volt::Model)
         traverse_model(node, mode, except, block)
       elsif node.is_a?(Volt::ReactiveArray)
@@ -234,7 +234,7 @@ module Volt
       end
       unless mode == :shallow 
         array.size.times do |i|
-          traverse_node(array[i], mode, except, block)
+          traverse(array[i], mode, except, block)
         end
       end
     end
@@ -247,7 +247,7 @@ module Volt
       end
       unless mode == :shallow
         hash.each_value do |value|
-          traverse_node(value, mode, except, block)
+          traverse(value, mode, except, block)
         end
       end
     end
@@ -264,7 +264,7 @@ module Volt
       end
       unless mode == :shallow
         model.attributes.each_key do |attr|
-          traverse_node(model.get(:"#{attr}"), mode, except, block)
+          traverse(model.get(:"#{attr}"), mode, except, block)
         end
       end
     end
@@ -278,7 +278,7 @@ module Volt
         end
         unless mode == :shallow 
           fields.each_key do |attr|
-            traverse_node(model.send(attr), mode, except, block)
+            traverse(model.send(attr), mode, except, block)
           end
         end
       end
