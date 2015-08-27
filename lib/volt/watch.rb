@@ -85,6 +85,7 @@ module Volt
     #   end
     # ```
     def on_change_in(model, except: nil, &block)
+      ensure_reactive(root)
       traverse(model, :shallow, except, block)
     end
 
@@ -194,6 +195,7 @@ module Volt
     # ```
     #
     def on_deep_change_in(root, except: nil, &block)
+      ensure_reactive(root)
       if block.arity <= 1
         add_watch( ->{ traverse(root, :root, except, block) } )
       else
@@ -215,6 +217,19 @@ module Volt
     end
 
     private
+
+    def ensure_reactive(model)
+      unless reactive?(model)
+        raise ArgumentError, 'argument must be Volt Model, ArrayModel, ReactiveArray or ReactiveHash'
+      end
+    end
+
+    def reactive?(model)
+      Volt::Model === model ||
+      Volt::ArrayModel === model ||
+      Volt::ReactiveArray == model ||
+      Vot::ReactiveHash === model
+    end
 
     def traverse(node, mode, except, block)
       if node.is_a?(Volt::Model)
