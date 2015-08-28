@@ -84,9 +84,11 @@ module Volt
     #     puts "dictionary[#{key}] => #{store.dictionary[key]}"
     #   end
     # ```
-    def on_change_in(model, except: nil, &block)
-      ensure_reactive(model)
-      traverse(model, :shallow, except, block)
+    def on_change_in(*args, except: nil, &block)
+      args.each do |arg|
+        ensure_reactive(arg)
+        traverse(arg, :shallow, except, block)
+      end
     end
 
     # Does a deep traversal of all values reachable from
@@ -194,12 +196,14 @@ module Volt
     #   end
     # ```
     #
-    def on_deep_change_in(root, except: nil, &block)
-      ensure_reactive(root)
-      if block.arity <= 1
-        add_watch( ->{ traverse(root, :root, except, block) } )
-      else
-        traverse(root, :node, except, block)
+    def on_deep_change_in(*roots, except: nil, &block)
+      roots.each do |root|
+        ensure_reactive(root)
+        if block.arity <= 1
+          add_watch( ->{ traverse(root, :root, except, block) } )
+        else
+          traverse(root, :node, except, block)
+        end
       end
     end
 
@@ -312,7 +316,7 @@ module Volt
     end
 
     def compute_term(mode, proc)
-      # :shallow and :node should watch
+      # :shallow and :node should watch, :root doesn't
       mode == :root ? proc.call : add_watch(proc)
     end
 
