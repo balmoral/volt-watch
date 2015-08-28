@@ -19,8 +19,8 @@ module Volt
     # ```
     #
     # Alias is :watch
-    def activate(proc)
-      add_watch(proc)
+    def activate(proc = nil, &block)
+      add_watch(proc || block)
     end
     alias_method :watch, :activate
 
