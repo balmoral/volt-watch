@@ -9,7 +9,9 @@ module Volt
     # For example:
     #
     # ```
-    #   activate ->{ puts person._name }
+    #   watch do
+    #     puts person._name
+    #   end
     # ```
     #
     # The behaviour is identical to doing
@@ -19,10 +21,10 @@ module Volt
     # ```
     #
     # Alias is :watch
-    def activate(proc = nil, &block)
+    def watch(proc = nil, &block)
       add_watch(proc || block)
     end
-    alias_method :watch, :activate
+    alias_method :activate, :watch
 
 
     # Adds a watch for a shallow change in the contents
@@ -46,41 +48,41 @@ module Volt
     # For example:
     #
     # ```
-    #   watch_values ->{ user } do |attr, value|
+    #   on_change_in ->{ user } do |attr, value|
     #     puts "user.#{attr} => #{value}"
     #   end
     # ```
     # or
     #
     # ```
-    #   watch_values ->{ user } do |attr|
+    #   on_change_in ->{ user } do |attr|
     #     puts "user.#{attr} => #{user.get(attr)}"
     #   end
     # ```
     # or
     #
     # ```
-    #   watch_values ->{ page._items} do |index, value|
+    #   on_change_in ->{ page._items} do |index, value|
     #     puts "page[#{index}] => #{item}"
     #   end
     # ```
     # or
     #
     # ```
-    #   watch_values ->{ page._items} do |index|
+    #   on_change_in ->{ page._items} do |index|
     #     puts "page[#{index}] => #{page._items[index]}"
     #   end
     # ```
     # or
     #
     # ```
-    #   watch_values ->{ store.dictionary } do |key, entry|
+    #   on_change_in ->{ store.dictionary } do |key, entry|
     #     puts "dictionary[#{key}] => #{entry}"
     #   end
     # ```
     # or
     # ```
-    #   watch_values ->{ store.dictionary } do |key|
+    #   on_change_in ->{ store.dictionary } do |key|
     #     puts "dictionary[#{key}] => #{store.dictionary[key]}"
     #   end
     # ```
@@ -172,7 +174,7 @@ module Volt
     #     end
     #   end
     #
-    #   def deep_order_watch
+    #   def on_deep_change_in
     #     # three arguments in given block gives detail of change
     #     on_deep_change_in store._orders do |context, locus, value|
     #       case

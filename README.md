@@ -28,8 +28,28 @@ Or install it yourself as:
 Include Volt::Watch in your Volt::Model or Volt::Controller.
 
 Then in {action}_ready create the watches.
+
+Examples:
  
-For example, to update a view list whenever items kept in store change:
+1) to watch for a change in a specific attribute of a model,
+```
+require 'volt-watch'
+...
+module MyApp
+  class MainController < Volt::ModelController
+    include Volt::Watch
+    ...
+    def index_ready
+      watch do
+        alert "User has changed name to '#{user.name}'}
+      end
+    end
+    ...
+  end
+end
+```
+
+2) to update a view list whenever an item in array of items in store changes:
 
 ```
 require 'volt-watch'
@@ -39,13 +59,24 @@ module MyApp
     include Volt::Watch
     ...
     def index_ready
-      watch ->{ _store.items } do
-        update_items_list
+      on_change_in ->{ store.items } do |index|
+        update_list_item(store.items[index], index)
       end
     end
     ...
   end
 end
+```
+
+3) to update a chart view component when any attribute in a chart model, or any nested attribute (to any level) changes:
+
+```
+  def index_ready
+    on_deep_change_in ->{ page,chart_model } do |model, locus, value|
+      update_chart_view(model, locus, value)
+    end
+    ...
+  end
 ```
 
 **IMPORTANT**
