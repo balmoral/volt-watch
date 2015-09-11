@@ -64,11 +64,14 @@ end
 
 ```
   def index_ready
-    on_deep_change_in ->{ page._chart } do |owner, attr, value|
-      # owner may be page._chart or any of its attributes or their attributes...
-      # attr is the attribute which has changed
-      # value is the new attribute value
-      update_chart_view(owner, attr, value)
+    on_deep_change_in ->{ page._chart } do |model, locus, value|
+      # `model` may be page._chart or any of its attributes or their attributes which are models or arrays.
+      # `locus` identifies where the changed in the model or array has occurred
+      # as a symbol (for a model attribute) or integer (for an array element's index).
+      # `value` is the new value.
+      # If an array has changed size then `model` will the array, `locus` will be `:size`
+      # and `value` will be the new size.
+      update_chart_view(model, locus, value)
     end
     ...
   end
