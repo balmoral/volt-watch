@@ -52,20 +52,12 @@ end
 2) to update a view list whenever an item in array of items in store changes:
 
 ```
-require 'volt-watch'
-...
-module MyApp
-  class MainController < Volt::ModelController
-    include Volt::Watch
-    ...
-    def index_ready
-      on_change_in ->{ store.items } do |index|
-        update_list_item(store.items[index], index)
-      end
+  def index_ready
+    on_change_in ->{ store.items } do |index|
+      update_list_item(store.items[index], index)
     end
     ...
   end
-end
 ```
 
 3) to update a chart view component when any attribute in a chart model, or any nested attribute (to any level) changes:
