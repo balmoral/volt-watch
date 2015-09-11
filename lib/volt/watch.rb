@@ -92,7 +92,7 @@ module Volt
     end
 
     # Does a deep traversal of all values reachable from
-    # the given root object.
+    # the given root object(s).
     #
     # Such values include:
     #   * attributes and field values of Volt::Model's
@@ -101,21 +101,19 @@ module Volt
     #   * size and key-value pairs of Volt::ReactiveHash's
     #   * nested values of the above
     #
-    # The root may be a Volt::Model, Volt::ArrayModel,
+    # The root(s) may be a Volt::Model, Volt::ArrayModel,
     # Volt::ReactiveArray or Volt::ReactiveHash.
     #
     # If the given block accepts zero or one argument then
-    # a single watch will be created which results in the
-    # block being called with the root object as the argument
+    # the block will be called with the root object as the argument
     # whenever any change occurs at any depth. This mode is
     # suitable when watching for deep changes to the contents
     # of a model/array/hash but you DO NOT need to identify
     # the particular value that changed.
     #
     # If the given block accepts two or more arguments then
-    # a watch will be created on each value reachable from
-    # the root. The block will be called when any value changes
-    # and will be passed three arguments:
+    # the block will be called when any value reachable from
+    # (one of) the root(s) changes and will be passed three arguments:
     #   1. the parent (owner) of the value that changed
     #      i.e. the model, array or hash holding the value
     #   2. the locus of the value, either:
@@ -129,7 +127,7 @@ module Volt
     # to the contents of a model/array/hash and you DO need
     # to identify what value that changed.
     #
-    # In both modes, any optional argument specifying attributes
+    # In both modes, an optional argument specifying attributes
     # you don't want to watch may be given with the :except
     # keyword argument. The argument should be a symbol or
     # integer or array of symbols or integers matching model
