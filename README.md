@@ -64,7 +64,7 @@ end
 
 ```
   def index_ready
-    on_deep_change_in ->{ page._chart } do |model, locus, value|
+    on_deep_change_in ->{ page._chart } do |locus, value, model|
       # `model` may be page._chart or any of its attributes or their attributes
       # which are models or arrays.
       # `locus` identifies where the change in the model or array has occurred

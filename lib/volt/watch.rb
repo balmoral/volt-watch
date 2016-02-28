@@ -20,11 +20,9 @@ module Volt
     #   ->{ puts person._name }.watch!
     # ```
     #
-    # Alias is :watch
     def watch(proc = nil, &block)
       add_watch(proc || block)
     end
-    alias_method :activate, :watch
 
 
     # Adds a watch for a shallow change in the contents
@@ -48,41 +46,41 @@ module Volt
     # For example:
     #
     # ```
-    #   on_change_in ->{ user } do |attr, value|
-    #     puts "user.#{attr} => #{value}"
+    #   on_change_in(user) do |attr, value, model|
+    #     puts "#{model}.#{attr} => #{value}"
     #   end
     # ```
     # or
     #
     # ```
-    #   on_change_in ->{ user } do |attr|
+    #   on_change_in(user) do |attr|
     #     puts "user.#{attr} => #{user.get(attr)}"
     #   end
     # ```
     # or
     #
     # ```
-    #   on_change_in ->{ page._items} do |index, value|
+    #   on_change_in(page._items) do |index, value|
     #     puts "page[#{index}] => #{item}"
     #   end
     # ```
     # or
     #
     # ```
-    #   on_change_in ->{ page._items} do |index|
+    #   on_change_in(page._items) do |index|
     #     puts "page[#{index}] => #{page._items[index]}"
     #   end
     # ```
     # or
     #
     # ```
-    #   on_change_in ->{ store.dictionary } do |key, entry|
+    #   on_change_in(store.dictionary) do |key, entry|
     #     puts "dictionary[#{key}] => #{entry}"
     #   end
     # ```
     # or
     # ```
-    #   on_change_in ->{ store.dictionary } do |key|
+    #   on_change_in(store.dictionary) do |key|
     #     puts "dictionary[#{key}] => #{store.dictionary[key]}"
     #   end
     # ```
@@ -167,7 +165,7 @@ module Volt
     #
     #   ...
     #
-    #   def shallow_order_watch
+    #   def deep_order_watch
     #     # one argument in given block has no detail of change
     #     on_deep_change_in orders do |store._orders|
     #       puts "something unknown changed in orders"
@@ -236,6 +234,7 @@ module Volt
     end
 
     def traverse(node, mode, except, block)
+      debug __method__, __LINE__, "node=#{node} mode=#{mode} except=#{except}"
       if node.is_a?(Volt::Model)
         traverse_model(node, mode, except, block)
       elsif node.is_a?(Volt::ReactiveArray)
@@ -246,7 +245,8 @@ module Volt
     end
 
     def traverse_array(array, mode, except, block)
-      compute_size(hash, mode, except, block)
+      debug __method__, __LINE__, "array=#{array} mode=#{mode} except=#{except}"
+      compute_size(array, mode, except, block)
       array.size.times do |i|
         # must access through array[i] to trigger dependency
         compute_value(array, i, ->{ array[i] }, mode, except, block)
@@ -303,15 +303,17 @@ module Volt
       end
     end
 
-    def compute_value(parent, locus, value, mode, except, block)
+    def compute_value(model, locus, value, mode, except, block)
       unless except && except.include?(locus)
-        compute_term mode, ->{ block.call(parent, locus, value.call) }
+        compute_term mode, ->{ block.call(locus, value.call, model) }
       end
     end
 
     def compute_size(collection, mode, except, block)
       unless except && except.include?(:size)
+        debug __method__, __LINE__, "collection=#{collection} mode=#{mode} except=#{except}"
         compute_term mode, ->{ block.call(collection, :size, collection.size) }
+        debug __method__, __LINE__, "collection=#{collection} mode=#{mode} except=#{except}"
       end
     end
 
@@ -324,5 +326,13 @@ module Volt
       (@watches ||= []) << proc.watch!
     end
 
+    def debug(method, line, msg = nil)
+      s = ">>> #{self.class.name}##{method}[#{line}] : #{msg}"
+      if RUBY_PLATFORM == 'opal'
+        Volt.logger.debug s
+      else
+        puts s
+      end
+    end
   end
 end
