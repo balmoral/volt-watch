@@ -26,28 +26,41 @@ module Volt
 
 
     # Adds a watch for a shallow change in the contents
-    # (attributes, elements, or key-value pairs) of a
-    # Volt::Model, Volt::ArrayModel, Volt::ReactiveArray)
-    # or Volt::ReactiveHash.
+    # (attributes, elements, or key-value pairs) of one or
+    # more reactive objects.
+    #
+    # Reactive objects are any of:
+    #   Volt::Model
+    #   Volt::ArrayModel
+    #   Volt::ReactiveArray
+    #   Volt::ReactiveHash
     #
     # When any value in the model, array or hash changes then
     # the given block will be called.
     #
     # The values of a Volt::Model are its attributes.
     #
-    # The values of an Volt::ArrayModel are its elements.
+    # The values of a Volt::ArrayModel or Volt::ReactiveArray are its elements.
     #
     # The values of an Volt::ReactiveHash are its key-value pairs.
     #
-    # The attribute_name/index/key of the changed value will be
-    # passed as the first argument to the given block. The new
-    # associated value will be passed as the second argument.
+    # If the args contain more than one object or the arity of the
+    # block, then the block will be passed the object, the
+    # locus and the value. If only one object is given and the
+    # block arity is less than 3, then the locus and the value
+    # will be passed to the block.
+    #
+    # The locus is:
+    #   the field name for a Volt::Model
+    #   the integer index or :size for a Volt::ArrayModel
+    #   the integer index or :size for a Volt::ReactiveArray
+    #   the key for Volt::ReactiveHash
     #
     # For example:
     #
     # ```
-    #   on_change_in(user) do |attr, value, model|
-    #     puts "#{model}.#{attr} => #{value}"
+    #   on_change_in(user) do |object, attr, value|
+    #     puts "#{object}.#{attr} => #{value}"
     #   end
     # ```
     # or
@@ -87,7 +100,7 @@ module Volt
     def on_change_in(*args, except: nil, &block)
       args.each do |arg|
         ensure_reactive(arg)
-        traverse(arg, :shallow, except, block)
+        traverse(arg, :shallow, except, args.size > 1 || block.arity == 3, block)
       end
     end
 
@@ -104,17 +117,11 @@ module Volt
     # The root(s) may be a Volt::Model, Volt::ArrayModel,
     # Volt::ReactiveArray or Volt::ReactiveHash.
     #
-    # If the given block accepts zero or one argument then
-    # the block will be called with the root object as the argument
-    # whenever any change occurs at any depth. This mode is
-    # suitable when watching for deep changes to the contents
-    # of a model/array/hash but you DO NOT need to identify
-    # the particular value that changed.
+    # The given block may accept one, two or three arguments.
     #
-    # If the given block accepts two or more arguments then
-    # the block will be called when any value reachable from
-    # (one of) the root(s) changes and will be passed three arguments:
-    #   1. the parent (owner) of the value that changed
+    # The block will be called when any value reachable from
+    # (one of) the root(s) changes.
+    #   1. the model (owner) of the value that changed
     #      i.e. the model, array or hash holding the value
     #   2. the locus of the value, either:
     #      * the attribute or field name for a model
@@ -197,11 +204,7 @@ module Volt
     def on_deep_change_in(*roots, except: nil, &block)
       roots.each do |root|
         ensure_reactive(root)
-        if block.arity <= 1
-          add_watch( ->{ traverse(root, :root, except, block) } )
-        else
-          traverse(root, :node, except, block)
-        end
+        traverse(root, :node, except, true, block)
       end
     end
 
@@ -233,87 +236,92 @@ module Volt
       Volt::ReactiveHash === model
     end
 
-    def traverse(node, mode, except, block)
-      debug __method__, __LINE__, "node=#{node} mode=#{mode} except=#{except}"
+    def traverse(node, mode, except, pass_model, block)
+      # debug __method__, __LINE__, "node=#{node} mode=#{mode} except=#{except}"
       if node.is_a?(Volt::Model)
-        traverse_model(node, mode, except, block)
+        traverse_model(node, mode, except, pass_model, block)
       elsif node.is_a?(Volt::ReactiveArray)
-        traverse_array(node, mode, except, block)
+        traverse_array(node, mode, except, pass_model, block)
       elsif node.is_a?(Volt::ReactiveHash)
-        traverse_hash(node, mode, except, block)
+        traverse_hash(node, mode, except, pass_model, block)
       end
     end
 
-    def traverse_array(array, mode, except, block)
-      debug __method__, __LINE__, "array=#{array} mode=#{mode} except=#{except}"
-      compute_size(array, mode, except, block)
+    def traverse_array(array, mode, except, pass_model, block)
+      # debug __method__, __LINE__, "array=#{array} mode=#{mode} except=#{except}"
+      compute_size(array, mode, except, pass_model, block)
       array.size.times do |i|
         # must access through array[i] to trigger dependency
-        compute_value(array, i, ->{ array[i] }, mode, except, block)
+        compute_value(array, i, ->{ array[i] }, mode, except, pass_model, block)
       end
       unless mode == :shallow 
         array.size.times do |i|
-          traverse(array[i], mode, except, block)
+          traverse(array[i], mode, except, pass_model, block)
         end
       end
     end
 
-    def traverse_hash(hash, mode, except, block)
-      compute_size(hash, mode, except, block)
+    def traverse_hash(hash, mode, except, pass_model, block)
+      compute_size(hash, mode, except, pass_model, block)
       hash.each_key do |key|
         # must access through hash[key] to trigger dependency
-        compute_value(hash, key, ->{ hash[key] }, mode, except, block)
+        compute_value(hash, key, ->{ hash[key] }, mode, except, pass_model, block)
       end
       unless mode == :shallow
         hash.each_value do |value|
-          traverse(value, mode, except, block)
+          traverse(value, mode, except, pass_model, block)
         end
       end
     end
 
-    def traverse_model(model, mode, except, block)
-      traverse_model_attrs(model, mode, except, block)
-      traverse_model_fields(model, mode, except, block)
+    def traverse_model(model, mode, except, pass_model, block)
+      traverse_model_attrs(model, mode, except, pass_model, block)
+      traverse_model_fields(model, mode, except, pass_model, block)
     end
 
-    def traverse_model_attrs(model, mode, except, block)
+    def traverse_model_attrs(model, mode, except, pass_model, block)
       model.attributes.each_key do |attr|
         # must access through get(attr) to trigger dependency
-        compute_value(model, attr, ->{ model.get(attr) }, mode, except, block)
+        compute_value(model, attr, ->{ model.get(attr) }, mode, except, pass_model, block)
       end
       unless mode == :shallow
         model.attributes.each_key do |attr|
-          traverse(model.get(:"#{attr}"), mode, except, block)
+          traverse(model.get(:"#{attr}"), mode, except, pass_model, block)
         end
       end
     end
 
-    def traverse_model_fields(model, mode, except, block)
+    def traverse_model_fields(model, mode, except, pass_model, block)
       fields = model.class.fields_data
       if fields
         fields.each_key do |attr|
           # must access through send(attr) to trigger dependency
-          compute_value(model, attr, ->{ model.send(attr) }, mode, except, block)
+          compute_value(model, attr, ->{ model.send(attr) }, mode, except, pass_model, block)
         end
         unless mode == :shallow 
           fields.each_key do |attr|
-            traverse(model.send(attr), mode, except, block)
+            traverse(model.send(attr), mode, except, pass_model, block)
           end
         end
       end
     end
 
-    def compute_value(model, locus, value, mode, except, block)
+    def compute_value(model, locus, value, mode, except, pass_model, block)
       unless except && except.include?(locus)
-        compute_term mode, ->{ block.call(locus, value.call, model) }
+        compute_term(
+          mode,
+          pass_model ? ->{ block.call(model, locus, value.call) } : ->{ block.call(locus, value.call) }
+        )
       end
     end
 
-    def compute_size(collection, mode, except, block)
+    def compute_size(collection, mode, except, pass_model, block)
       unless except && except.include?(:size)
-        debug __method__, __LINE__, "collection=#{collection} mode=#{mode} except=#{except}"
-        compute_term mode, ->{ block.call(collection, :size, collection.size) }
-        debug __method__, __LINE__, "collection=#{collection} mode=#{mode} except=#{except}"
+        # debug __method__, __LINE__, "collection=#{collection} mode=#{mode} except=#{except}"
+        compute_term(
+          mode,
+          pass_model ? ->{ block.call(collection, :size, collection.size) } : ->{ block.call(:size, collection.size) }
+        )
       end
     end
 
