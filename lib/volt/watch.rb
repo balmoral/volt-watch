@@ -225,25 +225,52 @@ module Volt
 
     def ensure_reactive(model)
       unless reactive?(model)
-        raise ArgumentError, 'argument must be Volt Model, ArrayModel, ReactiveArray or ReactiveHash'
+        raise ArgumentError, 'argument must be Volt Model, ArrayModel, ReactiveArray or ReactiveHash...'
       end
     end
 
     def reactive?(model)
+      reactive_model?(model) ||
+      reactive_array?(model) ||
+      reactive_hash?(model)
+    end
+
+    # Must behave like a Volt::Model
+    # and respond to #get(attribute)
+    def reactive_model?(model)
       Volt::Model === model ||
+      # dirty way of letting anything be reactive if it wants
+      (model.respond_to?(:reactive_model?) && model.reactive_model?) ||
+      (model.class.respond_to?(:reactive_model?) && model.class.reactive_model?)
+    end
+
+    # Must behave like a Volt::ArrayModel or Volt::ReactiveArray
+    def reactive_array?(model)
       Volt::ArrayModel === model ||
-      Volt::ReactiveArray == model ||
-      Volt::ReactiveHash === model
+      Volt::ReactiveArray === model ||
+      # dirty way of letting anything be reactive if it wants
+      (model.respond_to?(:reactive_array?) && model.reactive_array?) ||
+      (model.class.respond_to?(:reactive_array?) && model.class.reactive_array?)
+    end
+
+    # Must behave like a Volt::ReactiveHash
+    def reactive_hash?(model)
+      Volt::ReactiveHash === model ||
+      # dirty way of letting anything be reactive if it wants
+      (model.respond_to?(:reactive_hash?) && model.reactive_hash?) ||
+      (model.class.respond_to?(:reactive_hash?) && model.class.reactive_hash?)
     end
 
     def traverse(node, mode, except, pass_model, block)
       # debug __method__, __LINE__, "node=#{node} mode=#{mode} except=#{except}"
-      if node.is_a?(Volt::Model)
+      if reactive_model?(node)
         traverse_model(node, mode, except, pass_model, block)
-      elsif node.is_a?(Volt::ReactiveArray)
+      elsif reactive_array?(node)
         traverse_array(node, mode, except, pass_model, block)
-      elsif node.is_a?(Volt::ReactiveHash)
+      elsif reactive_hash?(node)
         traverse_hash(node, mode, except, pass_model, block)
+      else
+        # go no further
       end
     end
 
