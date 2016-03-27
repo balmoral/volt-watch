@@ -262,7 +262,7 @@ module Volt
     end
 
     def traverse(node, mode, except, pass_model, block)
-      # debug __method__, __LINE__, "node=#{node} mode=#{mode} except=#{except}"
+      # __debug __method__, __LINE__, "node=#{node} mode=#{mode} except=#{except}"
       if reactive_model?(node)
         traverse_model(node, mode, except, pass_model, block)
       elsif reactive_array?(node)
@@ -275,7 +275,7 @@ module Volt
     end
 
     def traverse_array(array, mode, except, pass_model, block)
-      # debug __method__, __LINE__, "array=#{array} mode=#{mode} except=#{except}"
+      # __debug __method__, __LINE__, "array=#{array} mode=#{mode} except=#{except}"
       compute_size(array, mode, except, pass_model, block)
       array.size.times do |i|
         # must access through array[i] to trigger dependency
@@ -344,7 +344,7 @@ module Volt
 
     def compute_size(collection, mode, except, pass_model, block)
       unless except && except.include?(:size)
-        # debug __method__, __LINE__, "collection=#{collection} mode=#{mode} except=#{except}"
+        # __debug __method__, __LINE__, "collection=#{collection} mode=#{mode} except=#{except}"
         compute_term(
           mode,
           pass_model ? ->{ block.call(collection, :size, collection.size) } : ->{ block.call(:size, collection.size) }
@@ -361,8 +361,10 @@ module Volt
       (@watches ||= []) << proc.watch!
     end
 
-    def debug(method, line, msg = nil)
-      s = ">>> #{self.class.name}##{method}[#{line}] : #{msg}"
+    private
+
+    def __debug(method, line, msg = nil)
+      s = "<<Volt::Watch>> #{self.class.name}##{method}[#{line}] : #{msg}"
       if RUBY_PLATFORM == 'opal'
         Volt.logger.debug s
       else
